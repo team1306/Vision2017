@@ -10,6 +10,12 @@ import org.opencv.imgproc.Imgproc;
 
 public class Main {
   public static void main(String[] args) {
+	int LOGITECH_RES_WIDTH = 720;
+	int LOGITECH_HORIZ_ANGLE = 45;
+	int UPPER_TAPE_WIDTH = 4;
+	double LOGITECH_FOCAL_LENGTH = 0.15748;
+	int TOWER_HEIGHT = 88;
+	  
     NetworkTable.setClientMode();
     NetworkTable.setTeam(1306);
     NetworkTable.initialize();
@@ -28,7 +34,6 @@ public class Main {
     UsbCamera camera = setUsbCamera(0, inputStream);
     // Set the resolution for our camera, since this is over USB
     camera.setResolution(1280,720);
-    
 
     // This creates a CvSink for us to use. This grabs images from our selected camera, 
     // and will allow us to use those images in opencv
@@ -45,18 +50,23 @@ public class Main {
     // as they are expensive to create
     Mat inputImage = new Mat();
     Mat hsv = new Mat();
+	Mat image_process;
+	Pipeline pipeline;
+	
+	ArrayList<MatOfPoint> final_contours;
+	ArrayList<Rect> bounding_box;
 	
     boolean hasBBOX = false;
+	double yaw, dist, angle;
 	
     while (true) {
 	long frameTime = imageSink.grabFrame(inputImage);
         if (frameTime == 0) continue;
-	VisionData data=new VisionData(inputImage.t());
-	ArrayList<MatOfPoint> final_contours;
-	ArrayList<Rect> bounding_box;
-	double yaw, dist, angle;
-	final_contours=data.processImage();
-	bounding_box=data.getBoundingBox(final_contours);
+		
+	image_process=inputImage.t();
+	final_contours=processImage();
+	bounding_box=getBoundingBox(final_contours);
+	
 	// Sorting (We want the top tape, not the bottom one
 	if (bounding_box.size() > 0) {
 		java.util.Collections.sort(bounding_box, new Comparator<Rect>() {
@@ -66,9 +76,9 @@ public class Main {
 		    	return  Double.compare(bbox1.y,bbox2.y);
 			}
 	    	});
-		yaw=data.getYaw1(bounding_box.get(0));
-		dist=data.getDistance(bounding_box.get(0));
-		angle=data.getAngle(dist);
+		yaw=getYaw(bounding_box.get(0));
+		dist=getDistance(bounding_box.get(0));
+		angle=getAngle(dist);
 		table.putNumber("yaw", yaw);
 		table.putNumber("dist", dist);
 		table.putNumber("angle", angle);
@@ -76,6 +86,7 @@ public class Main {
 		//table.putNumber("bboxy", bounding_box.get(1).y);
 		table.putBoolean("seeTarget", true);
 		System.out.println("YAW:" + yaw);
+		
 	} else {
 		table.putBoolean("seeTarget", false);
 		System.out.println("No bbox------------------------------------------------------------No bbox");
@@ -95,25 +106,16 @@ public class Main {
     server.setSource(camera);
     return camera;
   }
-	int LOGITECH_RES_WIDTH = 720;
-	int LOGITECH_HORIZ_ANGLE = 45;
-	int UPPER_TAPE_WIDTH = 4;
-	double LOGITECH_FOCAL_LENGTH = 0.15748;
-	int TOWER_HEIGHT = 88;
 
-	Pipeline pipeline; // This goes to the GRIP pipeline that does all the work
-	Mat image_process; // Input image
-
+	//ArrayList<MatOfPoint> final_contours; // Contours that GRIP gives at the end
 	public ArrayList<MatOfPoint> processImage() {
-		ArrayList<MatOfPoint> final_contours; // Contours that GRIP gives at the end
 		pipeline.process(image_process);
-		final_contours = pipeline.filterContoursOutput(); // Get GRIP output
-		return final_contours;
+		//final_contours = pipeline.filterContoursOutput(); // Get GRIP output
+		return pipeline.filterContoursOutput();
 	}
 
+	ArrayList<Rect> bbox= new ArrayList<Rect>();
 	public ArrayList<Rect> getBoundingBox(ArrayList<MatOfPoint> contours) {
-		ArrayList<Rect> bbox= new ArrayList<Rect>(); //Bbox stuff
-
 		for (int i = 0; i < contours.size(); i++) {
 			bbox.add(Imgproc.boundingRect(contours.get(i)));
 		}
@@ -121,25 +123,14 @@ public class Main {
 	}
 
 	public double getYaw(Rect upper_tape) {
-		double yaw;
-		//This takes the width of the image in pixels and divides it by the horizontal angle,
-		//giving the number of degrees per pixel
-		double deg_per_pixel= LOGITECH_RES_WIDTH / LOGITECH_HORIZ_ANGLE;
-		double center_col = (LOGITECH_RES_WIDTH - 1) / 2; //Center column of image, -1 is to account for 0 indexing
-
-		int contour_x = upper_tape.x;//column of center of contour (tape)
-		yaw = (contour_x - center_col) * deg_per_pixel;
-		//(contour_x - center_col) is the horizontal distance between 
-		//the center of the image and the center of the target in pixels, so 
-		//you multiply that by the degrees/pixel conversion factor to get degrees
-
-		return yaw;
+		System.out.println("Upper tape X:" + upper_tape.x + "Upper tape Y:" + upper_tape.y + "imgCenter:" + (LOGITECH_RES_WIDTH/2));
+		return Math.toDegrees(Math.atan((upper_tape.x - (LOGITECH_RES_WIDTH/2)) / LOGITECH_FOC_LENGTH_PX));
 	}
 
 	public double getDistance(Rect upper_tape) {
-		double apparent_width=upper_tape.width;
-		double horiz_distance= (UPPER_TAPE_WIDTH * LOGITECH_FOCAL_LENGTH) / apparent_width;
-		return horiz_distance;
+		//double apparent_width=upper_tape.width;
+		//double horiz_distance= (UPPER_TAPE_WIDTH * LOGITECH_FOCAL_LENGTH) / apparent_width;
+		return (UPPER_TAPE_WIDTH * LOGITECH_FOCAL_LENGTH) / upper_tape.width;
 
 	}
 	public double getAngle(double horiz_dist) {
