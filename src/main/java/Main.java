@@ -9,12 +9,15 @@ import org.opencv.core.MatOfPoint;
 import org.opencv.imgproc.Imgproc;
 
 public class Main {
-  public static void main(String[] args) {
-	int LOGITECH_RES_WIDTH = 720;
-	int LOGITECH_HORIZ_ANGLE = 45;
-	int UPPER_TAPE_WIDTH = 4;
-	double LOGITECH_FOCAL_LENGTH = 0.15748;
-	int TOWER_HEIGHT = 88;
+  public static void main(String[] args) {	
+	final int LOGITECH_RES_WIDTH = 480;					//720
+	final int LOGITECH_RES_HEIGHT = 640;				//1280
+	final int LOGITECH_HORIZ_ANGLE = 45;
+	final int UPPER_TAPE_WIDTH = 4;
+	final double LOGITECH_FOCAL_LENGTH = 554.256;		//Slide 42 [640/(2*tan(60/2))]
+	final double LOGITECH_FOC_LENGTH_PX = 7.255197; 	//Old formula, new calc[LOGITECH_RES_WIDTH/(2*Math.toDegrees(Math.tan(Math.toRadians(60/2))))] 1108.512
+	final double LOGITECH_FOV = 46.826					//Slide 42 [2atan((.5*480)/554.256)]
+	final int TOWER_HEIGHT = 88;
 	  
     NetworkTable.setClientMode();
     NetworkTable.setTeam(1306);
@@ -46,16 +49,10 @@ public class Main {
     MjpegServer cvStream = new MjpegServer("CV Image Stream", 1186);
     cvStream.setSource(imageSource);
 
-    // All Mats and Lists should be stored outside the loop to avoid allocations
-    // as they are expensive to create
+    // Create objects here to avoid allocation issues
     Mat inputImage = new Mat();
-    //Mat hsv = new Mat();
-	//Mat image_process;
 	Pipeline pipeline = new Pipeline();
-	
-	//ArrayList<MatOfPoint> final_contours;
 	ArrayList<Rect> bounding_box;
-	
 	double yaw, dist, angle;
 	
     while (true) {
