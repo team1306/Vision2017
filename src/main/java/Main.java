@@ -56,7 +56,6 @@ public class Main {
 	//ArrayList<MatOfPoint> final_contours;
 	ArrayList<Rect> bounding_box;
 	
-    boolean hasBBOX = false;
 	double yaw, dist, angle;
 	
     while (true) {
