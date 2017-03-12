@@ -49,11 +49,11 @@ public class Main {
     // All Mats and Lists should be stored outside the loop to avoid allocations
     // as they are expensive to create
     Mat inputImage = new Mat();
-    Mat hsv = new Mat();
-	Mat image_process;
-	Pipeline pipeline;
+    //Mat hsv = new Mat();
+	//Mat image_process;
+	Pipeline pipeline = new Pipeline();
 	
-	ArrayList<MatOfPoint> final_contours;
+	//ArrayList<MatOfPoint> final_contours;
 	ArrayList<Rect> bounding_box;
 	
     boolean hasBBOX = false;
@@ -63,9 +63,9 @@ public class Main {
 	long frameTime = imageSink.grabFrame(inputImage);
         if (frameTime == 0) continue;
 		
-	image_process=inputImage.t();
-	final_contours=processImage();
-	bounding_box=getBoundingBox(final_contours);
+	//image_process=inputImage.t();
+	//final_contours=processImage();
+	bounding_box=getBoundingBox(processImage());
 	
 	// Sorting (We want the top tape, not the bottom one
 	if (bounding_box.size() > 0) {
@@ -76,16 +76,16 @@ public class Main {
 		    	return  Double.compare(bbox1.y,bbox2.y);
 			}
 	    	});
-		yaw=getYaw(bounding_box.get(0));
-		dist=getDistance(bounding_box.get(0));
-		angle=getAngle(dist);
-		table.putNumber("yaw", yaw);
-		table.putNumber("dist", dist);
-		table.putNumber("angle", angle);
+		//yaw=getYaw(bounding_box.get(0));
+		//dist=getDistance(bounding_box.get(0));
+		//angle=getAngle(getDistance(bounding_box.get(0)));
+		table.putNumber("yaw", getYaw(bounding_box.get(0)));
+		table.putNumber("dist", getDistance(bounding_box.get(0)));
+		table.putNumber("angle", getAngle(getDistance(bounding_box.get(0))));
 		//table.putNumber("bboxx", bounding_box.get(0).x);
 		//table.putNumber("bboxy", bounding_box.get(1).y);
 		table.putBoolean("seeTarget", true);
-		System.out.println("YAW:" + yaw);
+		System.out.println("YAW:" + getYaw(bounding_box.get(0)));
 		
 	} else {
 		table.putBoolean("seeTarget", false);
@@ -109,7 +109,7 @@ public class Main {
 
 	//ArrayList<MatOfPoint> final_contours; // Contours that GRIP gives at the end
 	public ArrayList<MatOfPoint> processImage() {
-		pipeline.process(image_process);
+		pipeline.process(inputImage.t());
 		//final_contours = pipeline.filterContoursOutput(); // Get GRIP output
 		return pipeline.filterContoursOutput();
 	}
