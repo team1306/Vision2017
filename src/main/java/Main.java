@@ -12,10 +12,9 @@ public class Main {
   public static void main(String[] args) {	
 	final int LOGITECH_RES_WIDTH = 480;					//720
 	final int LOGITECH_RES_HEIGHT = 640;				//1280
-	final int LOGITECH_HORIZ_ANGLE = 45;
+	final int LOGITECH_HORIZ_ANGLE = 45;				//Angle of camera relative to ground
 	final int UPPER_TAPE_WIDTH = 4;
 	final double LOGITECH_FOCAL_LENGTH = 554.256;		//Slide 42 [640/(2*tan(60/2))]
-	final double LOGITECH_FOC_LENGTH_PX = 7.255197; 	//Old formula, new calc[LOGITECH_RES_WIDTH/(2*Math.toDegrees(Math.tan(Math.toRadians(60/2))))] 1108.512
 	final double LOGITECH_FOV = 46.826					//Slide 42 [2atan((.5*480)/554.256)]
 	final int TOWER_HEIGHT = 88;
 	  
@@ -75,11 +74,14 @@ public class Main {
 		//yaw=getYaw(bounding_box.get(0));
 		//dist=getDistance(bounding_box.get(0));
 		//angle=getAngle(getDistance(bounding_box.get(0)));
+		
 		table.putNumber("yaw", getYaw(bounding_box.get(0)));
 		table.putNumber("dist", getDistance(bounding_box.get(0)));
 		table.putNumber("angle", getAngle(getDistance(bounding_box.get(0))));
+		
 		//table.putNumber("bboxx", bounding_box.get(0).x);
 		//table.putNumber("bboxy", bounding_box.get(1).y);
+		
 		table.putBoolean("seeTarget", true);
 		System.out.println("YAW:" + getYaw(bounding_box.get(0)));
 		
@@ -120,14 +122,14 @@ public class Main {
 
 	public double getYaw(Rect upper_tape) {
 		System.out.println("Upper tape X:" + upper_tape.x + "Upper tape Y:" + upper_tape.y + "imgCenter:" + (LOGITECH_RES_WIDTH/2));
-		return Math.toDegrees(Math.atan((upper_tape.x - (LOGITECH_RES_WIDTH/2)) / LOGITECH_FOC_LENGTH_PX));
+		return Math.toDegrees(Math.atan((upper_tape.x - (LOGITECH_RES_WIDTH/2)) / LOGITECH_FOC_LENGTH));
 	}
 
 	public double getDistance(Rect upper_tape) {
 		//double apparent_width=upper_tape.width;
 		//double horiz_distance= (UPPER_TAPE_WIDTH * LOGITECH_FOCAL_LENGTH) / apparent_width;
-		return (UPPER_TAPE_WIDTH * LOGITECH_FOCAL_LENGTH) / upper_tape.width;
-
+		//return (UPPER_TAPE_WIDTH * LOGITECH_FOCAL_LENGTH) / upper_tape.width;
+		return TOWER_HEIGHT/math.sin(LOGITECH_HORIZ_ANGLE);
 	}
 	public double getAngle(double horiz_dist) {
 		return (Math.toDegrees(Math.atan(TOWER_HEIGHT/horiz_dist)));
