@@ -1,1 +1,1 @@
-java -Djava.library.path=. -jar CameraVision-all.jar
+java -Djava.library.path=. -jar CameraVision-all.jar -Xmx1024m -Xms512m

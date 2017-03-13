@@ -70,7 +70,7 @@ task writeExecuteScript() {
       runFile.write "java -Djava.library.path=. -jar ${projectName}-all.jar"
     } else {
       def runFile = new File("${buildDir}/run${projectName}")
-      runFile.write "java -Djava.library.path=. -jar ${projectName}-all.jar"
+      runFile.write "java -Djava.library.path=. -jar ${projectName}-all.jar -Xmx256m -Xms128m"
     }
   }
 }

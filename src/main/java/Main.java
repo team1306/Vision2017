@@ -9,15 +9,23 @@ import org.opencv.core.MatOfPoint;
 import org.opencv.imgproc.Imgproc;
 
 public class Main {
-  public static void main(String[] args) {	
-	final int LOGITECH_RES_WIDTH = 480;					//720
-	final int LOGITECH_RES_HEIGHT = 640;				//1280
-	final int LOGITECH_HORIZ_ANGLE = 45;				//Angle of camera relative to ground
-	final int UPPER_TAPE_WIDTH = 4;
-	final double LOGITECH_FOCAL_LENGTH = 554.256;		//Slide 42 [640/(2*tan(60/2))]
-	final double LOGITECH_FOV = 46.826					//Slide 42 [2atan((.5*480)/554.256)]
-	final int TOWER_HEIGHT = 88;
-	  
+        static final int LOGITECH_RES_WIDTH = 480;                                     //720
+        static final int LOGITECH_RES_HEIGHT = 640;                            //1280
+        static final int LOGITECH_HORIZ_ANGLE = 45;                            //Angle of camera relative to ground
+        static final int UPPER_TAPE_WIDTH = 4;
+        static final double LOGITECH_FOCAL_LENGTH = 554.256;           //Slide 42 [640/(2*tan(60/2))]
+        static final double LOGITECH_FOV = 46.826;                     //Slide 42 [2atan((.5*480)/554.256)]
+        static final int TOWER_HEIGHT = 88;
+
+	static Mat inputImage;
+	static Pipeline pipeline;
+  public static void main(String[] args) throws InterruptedException {
+	Runtime.getRuntime().addShutdownHook(new Thread() {
+		@Override
+		public void run() {
+			System.out.println("SHUTDOWN");
+		}
+	});
     NetworkTable.setClientMode();
     NetworkTable.setTeam(1306);
     NetworkTable.initialize();
@@ -35,7 +43,7 @@ public class Main {
     // that can be used
     UsbCamera camera = setUsbCamera(0, inputStream);
     // Set the resolution for our camera, since this is over USB
-    camera.setResolution(1280,720);
+    camera.setResolution(LOGITECH_RES_HEIGHT,LOGITECH_RES_WIDTH);
 
     // This creates a CvSink for us to use. This grabs images from our selected camera, 
     // and will allow us to use those images in opencv
@@ -44,23 +52,26 @@ public class Main {
 
     // This creates a CvSource to use. This will take in a Mat image that has had OpenCV operations
     // operations 
-    CvSource imageSource = new CvSource("CV Image Source", VideoMode.PixelFormat.kMJPEG, 1280, 720, 30);
+    CvSource imageSource = new CvSource("CV Image Source", VideoMode.PixelFormat.kMJPEG, LOGITECH_RES_WIDTH, LOGITECH_RES_HEIGHT, 30);
     MjpegServer cvStream = new MjpegServer("CV Image Stream", 1186);
     cvStream.setSource(imageSource);
 
     // Create objects here to avoid allocation issues
-    Mat inputImage = new Mat();
-	Pipeline pipeline = new Pipeline();
+	inputImage = new Mat();
+	pipeline = new Pipeline();
 	ArrayList<Rect> bounding_box;
 	double yaw, dist, angle;
 	
     while (true) {
+	inputImage.release();
 	long frameTime = imageSink.grabFrame(inputImage);
         if (frameTime == 0) continue;
 		
 	//image_process=inputImage.t();
 	//final_contours=processImage();
 	bounding_box=getBoundingBox(processImage());
+
+	//System.out.println("BBOX: " + bounding_box);
 	
 	// Sorting (We want the top tape, not the bottom one
 	if (bounding_box.size() > 0) {
@@ -86,6 +97,7 @@ public class Main {
 		System.out.println("YAW:" + getYaw(bounding_box.get(0)));
 		
 	} else {
+		bounding_box.clear();
 		table.putBoolean("seeTarget", false);
 		System.out.println("No bbox------------------------------------------------------------No bbox");
 	}
@@ -106,32 +118,32 @@ public class Main {
   }
 
 	//ArrayList<MatOfPoint> final_contours; // Contours that GRIP gives at the end
-	public ArrayList<MatOfPoint> processImage() {
+	public static  ArrayList<MatOfPoint> processImage() {
 		pipeline.process(inputImage.t());
 		//final_contours = pipeline.filterContoursOutput(); // Get GRIP output
 		return pipeline.filterContoursOutput();
 	}
 
-	ArrayList<Rect> bbox= new ArrayList<Rect>();
-	public ArrayList<Rect> getBoundingBox(ArrayList<MatOfPoint> contours) {
+	static ArrayList<Rect> bbox= new ArrayList<Rect>();
+	public static ArrayList<Rect> getBoundingBox(ArrayList<MatOfPoint> contours) {
 		for (int i = 0; i < contours.size(); i++) {
 			bbox.add(Imgproc.boundingRect(contours.get(i)));
 		}
 		return bbox;
 	}
 
-	public double getYaw(Rect upper_tape) {
+	public static double getYaw(Rect upper_tape) {
 		System.out.println("Upper tape X:" + upper_tape.x + "Upper tape Y:" + upper_tape.y + "imgCenter:" + (LOGITECH_RES_WIDTH/2));
-		return Math.toDegrees(Math.atan((upper_tape.x - (LOGITECH_RES_WIDTH/2)) / LOGITECH_FOC_LENGTH));
+		return Math.toDegrees(Math.atan((upper_tape.x - (LOGITECH_RES_WIDTH/2)) / LOGITECH_FOCAL_LENGTH));
 	}
 
-	public double getDistance(Rect upper_tape) {
+	public static double getDistance(Rect upper_tape) {
 		//double apparent_width=upper_tape.width;
 		//double horiz_distance= (UPPER_TAPE_WIDTH * LOGITECH_FOCAL_LENGTH) / apparent_width;
 		//return (UPPER_TAPE_WIDTH * LOGITECH_FOCAL_LENGTH) / upper_tape.width;
-		return TOWER_HEIGHT/math.sin(LOGITECH_HORIZ_ANGLE);
+		return TOWER_HEIGHT/Math.sin(LOGITECH_HORIZ_ANGLE);
 	}
-	public double getAngle(double horiz_dist) {
+	public static double getAngle(double horiz_dist) {
 		return (Math.toDegrees(Math.atan(TOWER_HEIGHT/horiz_dist)));
 	}
 }
