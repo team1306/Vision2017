@@ -2,9 +2,11 @@ import edu.wpi.first.wpilibj.networktables.*;
 import edu.wpi.first.wpilibj.tables.*;
 import org.opencv.core.Rect;
 import java.util.ArrayList;
+import org.opencv.core.*;
 import java.util.Comparator;
 import edu.wpi.cscore.*;
 import org.opencv.core.Mat;
+import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.core.MatOfPoint;
 import org.opencv.imgproc.Imgproc;
 
@@ -14,8 +16,10 @@ public class Main {
         static final int LOGITECH_HORIZ_ANGLE = 45;                            //Angle of camera relative to ground
         static final int UPPER_TAPE_WIDTH = 4;
         static final double LOGITECH_FOCAL_LENGTH = 554.256;           //Slide 42 [640/(2*tan(60/2))]
+//	static final double LOGITECH_FOCAL_LENGTH = 483;
         static final double LOGITECH_FOV = 46.826;                     //Slide 42 [2atan((.5*480)/554.256)]
         static final int TOWER_HEIGHT = 88;
+	static final int ROBOT_HEIGHT=23;
 
 	static Mat inputImage;
 	static Pipeline pipeline;
@@ -36,14 +40,14 @@ public class Main {
     int streamPort = 1185;
 
     // This stores our reference to our mjpeg server for streaming the input image
-    MjpegServer inputStream = new MjpegServer("MJPEG Server", streamPort);
+   MjpegServer inputStream = new MjpegServer("MJPEG Server", streamPort);
 
     // This gets the image from a USB camera 
     // Usually this will be on device 0, but there are other overloads
     // that can be used
-    UsbCamera camera = setUsbCamera(0, inputStream);
+  UsbCamera camera = setUsbCamera(0, inputStream);
     // Set the resolution for our camera, since this is over USB
-    camera.setResolution(LOGITECH_RES_HEIGHT,LOGITECH_RES_WIDTH);
+   camera.setResolution(LOGITECH_RES_HEIGHT,LOGITECH_RES_WIDTH);
 
     // This creates a CvSink for us to use. This grabs images from our selected camera, 
     // and will allow us to use those images in opencv
@@ -52,29 +56,35 @@ public class Main {
 
     // This creates a CvSource to use. This will take in a Mat image that has had OpenCV operations
     // operations 
-    CvSource imageSource = new CvSource("CV Image Source", VideoMode.PixelFormat.kMJPEG, LOGITECH_RES_WIDTH, LOGITECH_RES_HEIGHT, 30);
+   CvSource imageSource = new CvSource("CV Image Source", VideoMode.PixelFormat.kMJPEG, LOGITECH_RES_WIDTH, LOGITECH_RES_HEIGHT, 30);
     MjpegServer cvStream = new MjpegServer("CV Image Stream", 1186);
     cvStream.setSource(imageSource);
 
     // Create objects here to avoid allocation issues
 	inputImage = new Mat();
 	pipeline = new Pipeline();
+	ArrayList<MatOfPoint> final_contours;
 	ArrayList<Rect> bounding_box;
 	double yaw, dist, angle;
 	
     while (true) {
+	bbox.clear();
 	inputImage.release();
 	long frameTime = imageSink.grabFrame(inputImage);
-        if (frameTime == 0) continue;
+       if (frameTime == 0) continue;
 		
-	//image_process=inputImage.t();
-	//final_contours=processImage();
-	bounding_box=getBoundingBox(processImage());
+//	image_process=inputImage.t();
 
-	//System.out.println("BBOX: " + bounding_box);
+	final_contours=processImage();
+	bounding_box=getBoundingBox(processImage());
+//	final_contours=pipeline.filterContoursOutput();
+	for (int x=0; x<final_contours.size(); x++) {
+		System.out.println(Imgproc.boundingRect(final_contours.get(x)));
+}
+//	System.out.println("BBOX: " + bounding_box);
 	
 	// Sorting (We want the top tape, not the bottom one
-	if (bounding_box.size() > 0) {
+	if (bounding_box.size() > 1) {
 		java.util.Collections.sort(bounding_box, new Comparator<Rect>() {
 			@Override
 			public int compare(Rect bbox1, Rect bbox2)
@@ -87,16 +97,21 @@ public class Main {
 		//angle=getAngle(getDistance(bounding_box.get(0)));
 		
 		table.putNumber("yaw", getYaw(bounding_box.get(0)));
-		table.putNumber("dist", getDistance(bounding_box.get(0)));
-		table.putNumber("angle", getAngle(getDistance(bounding_box.get(0))));
+		table.putNumber("angle", getAngle(bounding_box.get(0)));
+		table.putNumber("dist",  getDistance(getAngle(bounding_box.get(0))));
+
 		
-		//table.putNumber("bboxx", bounding_box.get(0).x);
-		//table.putNumber("bboxy", bounding_box.get(1).y);
+		table.putNumber("bboxx", bounding_box.get(0).x);
+		table.putNumber("bboxy", bounding_box.get(1).y);
 		
 		table.putBoolean("seeTarget", true);
 		System.out.println("YAW:" + getYaw(bounding_box.get(0)));
-		
-	} else {
+		System.out.println("ANGLE:" + getAngle(bounding_box.get(0)));
+		System.out.println("HORIZ DISTANCE:" + getDistance(getAngle(bounding_box.get(0))));
+
+
+	} 
+else {
 		bounding_box.clear();
 		table.putBoolean("seeTarget", false);
 		System.out.println("No bbox------------------------------------------------------------No bbox");
@@ -119,7 +134,16 @@ public class Main {
 
 	//ArrayList<MatOfPoint> final_contours; // Contours that GRIP gives at the end
 	public static  ArrayList<MatOfPoint> processImage() {
-		pipeline.process(inputImage.t());
+	//	Mat image = Imgcodecs.imread("/home/ubuntu/Vision/src/main/java/test11.jpg");
+	//	System.out.println("MADE IT");
+	//	if (!image.empty()) {
+		Mat transposed = inputImage.t();
+		Mat trans_flipped = new Mat();
+		Core.flip(transposed, trans_flipped, 1);
+		Core.flip(trans_flipped, trans_flipped, 0);
+
+		pipeline.process(trans_flipped);
+//}
 		//final_contours = pipeline.filterContoursOutput(); // Get GRIP output
 		return pipeline.filterContoursOutput();
 	}
@@ -137,13 +161,17 @@ public class Main {
 		return Math.toDegrees(Math.atan((upper_tape.x - (LOGITECH_RES_WIDTH/2)) / LOGITECH_FOCAL_LENGTH));
 	}
 
-	public static double getDistance(Rect upper_tape) {
+	public static double getDistance(double angle) {
+
 		//double apparent_width=upper_tape.width;
 		//double horiz_distance= (UPPER_TAPE_WIDTH * LOGITECH_FOCAL_LENGTH) / apparent_width;
-		//return (UPPER_TAPE_WIDTH * LOGITECH_FOCAL_LENGTH) / upper_tape.width;
-		return TOWER_HEIGHT/Math.sin(LOGITECH_HORIZ_ANGLE);
+		//return horiz_distance;
+		return ((TOWER_HEIGHT-ROBOT_HEIGHT)/Math.tan(Math.toRadians(angle)));
 	}
-	public static double getAngle(double horiz_dist) {
-		return (Math.toDegrees(Math.atan(TOWER_HEIGHT/horiz_dist)));
+	public static double getAngle(Rect upper_tape) {
+                double offset_angle=Math.toDegrees(Math.atan((upper_tape.y-(LOGITECH_RES_HEIGHT/2)) / LOGITECH_FOCAL_LENGTH));
+	//	return (Math.toDegrees(Math.atan(TOWER_HEIGHT/horiz_dist)));
+		return LOGITECH_HORIZ_ANGLE-offset_angle;
+
 	}
 }
